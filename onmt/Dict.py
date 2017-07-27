@@ -1,4 +1,6 @@
 import torch
+import codecs
+import onmt
 
 
 class Dict(object):
@@ -20,17 +22,17 @@ class Dict(object):
     def size(self):
         return len(self.idxToLabel)
 
-    # Load entries from a file.
     def loadFile(self, filename):
-        for line in open(filename):
+        "Load entries from a file."
+        for line in codecs.open(filename, 'r', 'utf-8'):
             fields = line.split()
             label = fields[0]
             idx = int(fields[1])
             self.add(label, idx)
 
-    # Write entries to a file.
     def writeFile(self, filename):
-        with open(filename, 'w') as file:
+        "Write entries to a file."
+        with codecs.open(filename, 'w', 'utf-8') as file:
             for i in range(self.size()):
                 label = self.idxToLabel[i]
                 file.write('%s %d\n' % (label, i))
@@ -44,24 +46,32 @@ class Dict(object):
         except KeyError:
             return default
 
+    def align(self, other):
+        "Find the id of each label in other dict."
+        alignment = [onmt.Constants.PAD] * self.size()
+        for idx, label in self.idxToLabel.items():
+            if label in other.labelToIdx:
+                alignment[idx] = other.labelToIdx[label]
+        return alignment
+
     def getLabel(self, idx, default=None):
         try:
             return self.idxToLabel[idx]
         except KeyError:
             return default
 
-    # Mark this `label` and `idx` as special (i.e. will not be pruned).
     def addSpecial(self, label, idx=None):
+        "Mark this `label` and `idx` as special (i.e. will not be pruned)."
         idx = self.add(label, idx)
         self.special += [idx]
 
-    # Mark all labels in `labels` as specials (i.e. will not be pruned).
     def addSpecials(self, labels):
+        "Mark all labels in `labels` as specials (i.e. will not be pruned)."
         for label in labels:
             self.addSpecial(label)
 
-    # Add `label` in the dictionary. Use `idx` as its index if given.
     def add(self, label, idx=None):
+        "Add `label` in the dictionary. Use `idx` as its index if given."
         label = label.lower() if self.lower else label
         if idx is not None:
             self.idxToLabel[idx] = label
@@ -81,8 +91,8 @@ class Dict(object):
 
         return idx
 
-    # Return a new dictionary with the `size` most frequent entries.
     def prune(self, size):
+        "Return a new dictionary with the `size` most frequent entries."
         if size >= self.size():
             return self
 
@@ -103,9 +113,11 @@ class Dict(object):
 
         return newDict
 
-    # Convert `labels` to indices. Use `unkWord` if not found.
-    # Optionally insert `bosWord` at the beginning and `eosWord` at the .
     def convertToIdx(self, labels, unkWord, bosWord=None, eosWord=None):
+        """
+        Convert `labels` to indices. Use `unkWord` if not found.
+        Optionally insert `bosWord` at the beginning and `eosWord` at the .
+        """
         vec = []
 
         if bosWord is not None:
@@ -119,8 +131,12 @@ class Dict(object):
 
         return torch.LongTensor(vec)
 
-    # Convert `idx` to labels. If index `stop` is reached, convert it and return.
     def convertToLabels(self, idx, stop):
+        """
+        Convert `idx` to labels.
+        If index `stop` is reached, convert it and return.
+        """
+
         labels = []
 
         for i in idx:
